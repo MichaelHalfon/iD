@@ -6,11 +6,11 @@ echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-
 
 if [[ $TRAVIS_BRANCH = "master" ]]; then
   ./tools/build.sh prod
-  docker tag routs-api:prod michaelboublil/routs-editor:prod
+  docker tag routs-editor:prod michaelboublil/routs-editor:prod
   docker push michaelboublil/routs-editor:prod
 elif [[ $TRAVIS_BRANCH = "dev" ]]; then
   ./tools/build.sh staging
-  docker tag routs-api:staging michaelboublil/routs-editor:staging-$UUID
+  docker tag routs-editor:staging michaelboublil/routs-editor:staging-$UUID
   docker push michaelboublil/routs-editor:staging-$UUID
 fi
 
