@@ -7,7 +7,7 @@ services:
       restart_policy:
         condition: on-failure
     ports:
-      - target: 8080
+      - target: 5000
         published: 8081
         protocol: tcp
         mode: host
