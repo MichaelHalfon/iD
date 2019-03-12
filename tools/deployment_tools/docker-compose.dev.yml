@@ -1,0 +1,16 @@
+version: "3.5"
+services:
+  app:
+    image: routs-editor:dev
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "2"
+      restart_policy:
+        condition: on-failure
+    ports:
+      - target: 8080
+        published: 8081
+        protocol: tcp
+        mode: host

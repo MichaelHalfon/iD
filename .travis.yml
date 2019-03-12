@@ -1,10 +1,30 @@
-language: node_js
-node_js:
-  - "6"
-  - "8"
-  - "10"
+notifications:
+  slack: routs:NGiVxGGZzFCVzAbNvgM3TUnE#travis
+  email:
+    recipients:
+      - felix.ganz@epitech.eu
+      - romain.deffains@epitech.eu
+    on_success: never
+    on_failure: always
+
 sudo: required
-before_script:
-  - npm run all
-after_success:
-  - ./scripts/txpush.sh
+
+services:
+    - docker
+
+before_install:
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+  - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+  - sudo apt-get update
+  - sudo apt-get -y install docker-ce
+
+script:
+  -bash ./tools/success_deploy.sh
+
+  #- bash ./tools/docker_start.sh test
+
+#deploy:
+  #provider: script
+  #script: bash ./tools/success_deploy.sh
+  #on:
+    #all_branches: true

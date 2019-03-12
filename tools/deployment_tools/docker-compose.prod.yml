@@ -1,0 +1,31 @@
+version: "3.5"
+services:
+  app:
+    image: michaelboublil/routs-editor:prod
+    networks:
+      - proxy
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    ports:
+      - target: 8080
+        published: 8081
+        protocol: tcp
+        mode: host
+
+  shepherd:
+    image: mazzolino/shepherd
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/ec2-user/.docker/config.json:/root/.docker/config.json
+    environment:
+      - WITH_REGISTRY_AUTH="true"
+
+networks:
+  proxy:
+    external: true
