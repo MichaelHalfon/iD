@@ -19,7 +19,7 @@ before_install:
   - sudo apt-get -y install docker-ce
 
 script:
-  -bash ./tools/success_deploy.sh
+  - bash ./tools/success_deploy.sh
 
   #- bash ./tools/docker_start.sh test
 
