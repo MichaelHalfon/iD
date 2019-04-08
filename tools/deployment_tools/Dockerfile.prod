@@ -17,4 +17,4 @@ EXPOSE 8081
 EXPOSE 8080
 EXPOSE 5000
 
-CMD ["serve", "-s", "dist"]
+CMD ["serve", "-s", "."]
