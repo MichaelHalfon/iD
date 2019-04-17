@@ -59,6 +59,7 @@ var _userChangesets;
 var _userDetails;
 var _off;
 
+var _routsBoundaries = {}
 
 function authLoading() {
     dispatch.call('authLoading');
@@ -184,6 +185,7 @@ function encodeNoteRtree(note) {
 var parsers = {
     node: function nodeData(obj, uid) {
         var attrs = obj.attributes;
+        const loc = getLoc(attrs);
         return new osmNode({
             id: uid,
             visible: getVisible(attrs),
@@ -192,13 +194,14 @@ var parsers = {
             timestamp: attrs.timestamp && attrs.timestamp.value,
             user: attrs.user && attrs.user.value,
             uid: attrs.uid && attrs.uid.value,
-            loc: getLoc(attrs),
+            loc,
             tags: getTags(obj)
         });
     },
 
     way: function wayData(obj, uid) {
         var attrs = obj.attributes;
+        console.log(`Node attributes received from API: ${JSON.stringify(attrs)}`);
         return new osmWay({
             id: uid,
             visible: getVisible(attrs),
@@ -214,6 +217,7 @@ var parsers = {
 
     relation: function relationData(obj, uid) {
         var attrs = obj.attributes;
+        console.log(`Relation attributes received from API: ${attrs}`)
         return new osmRelation({
             id: uid,
             visible: getVisible(attrs),
@@ -229,6 +233,7 @@ var parsers = {
 
     note: function parseNote(obj, uid) {
         var attrs = obj.attributes;
+        console.log(`Note attributes received from API: ${attrs}`)
         var childNodes = obj.childNodes;
         var props = {};
 
@@ -270,6 +275,7 @@ var parsers = {
 
     user: function parseUser(obj, uid) {
         var attrs = obj.attributes;
+        console.log(`User attributes received from API: ${attrs}`)
         var user = {
             id: uid,
             display_name: attrs.display_name && attrs.display_name.value,
@@ -306,7 +312,7 @@ function parseXML(xml, callback, options) {
 
 
     function done(results) {
-        callback(null, results);
+        callback(null, results)
     }
 
     function parseChild(child) {
@@ -366,12 +372,74 @@ function wrapcb(thisArg, callback, cid) {
 }
 
 
+const jsonParsers = {
+    node: (data, uid) => {
+        return new osmNode({
+            id: uid,
+            // visible: getVisible(attrs),
+            // version: attrs.version.value,
+            // changeset: attrs.changeset && attrs.changeset.value,
+            // timestamp: attrs.timestamp && attrs.timestamp.value,
+            // user: attrs.user && attrs.user.value,
+            // uid: attrs.uid && attrs.uid.value,
+            // loc,
+            // tags: getTags(obj)
+        });
+    },
+    way: () => ({}),
+    relation: () => ({}),
+};
+
+function jsonParser(json, callback) {
+    console.log('Transforming json to node objects');
+    // Should return an array of osmNode or osmWay or osmRelation
+    if (!json || !Array.isArray(json)) {
+        return callback({ message: 'No JSON Nodes', status: -1 });
+    }
+
+    const done = (results) => callback(null, results);
+
+    const parseChild = () => {
+        var parser = jsonParsers[child.nodeName];
+        if (!parser) return null;
+
+        var uid;
+        if (child.nodeName === 'user') {
+            uid = child.attributes.id.value;
+            if (options.skipSeen && _userCache.user[uid]) {
+                delete _userCache.toLoad[uid];
+                return null;
+            }
+
+        } else if (child.nodeName === 'note') {
+            uid = child.getElementsByTagName('id')[0].textContent;
+
+        } else {
+            uid = osmEntity.id.fromOSM(child.nodeName, child.attributes.id.value);
+            // if options.skipSeen
+            if (true) {
+                if (_tileCache.seen[uid]) return null;  // avoid reparsing a "seen" entity
+                _tileCache.seen[uid] = true;
+            }
+        }
+
+        return parser(child, uid);
+    }
+
+    var children = json;
+    utilIdleWorker(children, parseChild, done);
+}
+
+
 export default {
 
     init: function() {
         utilRebind(this, dispatch, 'on');
     },
 
+    setRoutsBoundaries: function(area) {
+        _routsBoundaries = area
+    }
 
     reset: function() {
         _connectionID++;
@@ -440,11 +508,14 @@ export default {
     // Generic method to load data from the OSM API
     // Can handle either auth or unauth calls.
     loadFromAPI: function(path, callback, options) {
+
+        // <!> Path becomes useless if we have routsBoundaries set, or mapId or whatever
+
         options = _extend({ skipSeen: true }, options);
         var that = this;
         var cid = _connectionID;
 
-        function done(err, xml) {
+        function done(err, xml, isXml=true) {
             if (that.getConnectionId() !== cid) {
                 if (callback) callback({ message: 'Connection Switched', status: -1 });
                 return;
@@ -472,7 +543,14 @@ export default {
                     if (err) {
                         return callback(err);
                     } else {
-                        return parseXML(xml, callback, options);
+                        if (!isXml) {
+                            console.log('PARSING XML BUT ITS NOT ACTUALLY XML')
+                            return callback(jsonParser(xml, callback))
+                        }
+                        return parseXML(xml, (err, results) => {
+                            console.log(results);
+                            return callback(err, results);
+                        }, options);
                     }
                 }
             }
@@ -481,8 +559,16 @@ export default {
         if (this.authenticated()) {
             return oauth.xhr({ method: 'GET', path: path }, done);
         } else {
+            // Making a request expecting XML response format.
             var url = urlroot + path;
-            return d3_xml(url).get(done);
+
+            console.log(`Contacting OSM at ${url}`);
+            fetch(url, { method: 'get' }).then(res => res.text()).then(res => {
+                console.log('Using fetch to request data');
+                console.log(res);
+                return done(null, res, false);
+            });
+            // return d3_xml(url).get(done);
         }
     },
 
@@ -491,6 +577,7 @@ export default {
     // GET /api/0.6/node/#id
     // GET /api/0.6/[way|relation]/#id/full
     loadEntity: function(id, callback) {
+        console.log('loading single entity')
         var type = osmEntity.id.type(id);
         var osmID = osmEntity.id.toOSM(id);
         var options = { skipSeen: false };
@@ -508,6 +595,7 @@ export default {
     // Load a single entity with a specific version
     // GET /api/0.6/[node|way|relation]/#id/#version
     loadEntityVersion: function(id, version, callback) {
+        console.log('loading entity version')
         var type = osmEntity.id.type(id);
         var osmID = osmEntity.id.toOSM(id);
         var options = { skipSeen: false };
@@ -526,6 +614,7 @@ export default {
     // (note: callback may be called multiple times)
     // GET /api/0.6/[nodes|ways|relations]?#parameters
     loadMultiple: function(ids, callback) {
+        console.log('loading multiple entities')
         var that = this;
 
         _forEach(_groupBy(_uniq(ids), osmEntity.id.type), function(v, k) {
@@ -790,6 +879,7 @@ export default {
     // Load data (entities) from the API in tiles
     // GET /api/0.6/map?bbox=
     loadTiles: function(projection, callback) {
+        console.log('Loading tiles')
         if (_off) return;
 
         var that = this;
@@ -836,6 +926,7 @@ export default {
     // Load notes from the API in tiles
     // GET /api/0.6/notes?bbox=
     loadNotes: function(projection, noteOptions) {
+        console.log('Loading notes')
         noteOptions = _extend({ limit: 10000, closed: 7 }, noteOptions);
         if (_off) return;
 
