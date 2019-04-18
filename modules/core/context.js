@@ -24,7 +24,10 @@ import { uiInit } from '../ui/init';
 import { utilDetect } from '../util/detect';
 import { utilCallWhenIdle, utilKeybinding, utilRebind, utilStringQs } from '../util';
 
-
+// -- Routs Import --
+// Abstract:
+import RoutsApi from '../services/routsApi';
+// -- END --
 
 export var areaKeys = {};
 
@@ -98,6 +101,7 @@ export function coreContext() {
     /* Straight accessors. Avoid using these if you can. */
     var connection, history, validator;
     context.connection = function() { return connection; };
+
     context.history = function() { return history; };
     context.validator = function() { return validator; };
 
@@ -502,6 +506,19 @@ export function coreContext() {
     background = rendererBackground(context);
     features = rendererFeatures(context);
     presets = presetIndex(context);
+
+    // -- Routs --
+    // -- Abstract: Loading the routs map id into osm service
+    console.log('Window hash', window.location.hash);
+    const params = utilStringQs(window.location.hash);
+    const mapId = params['#routs-map'] || params['routs-map']
+    const { serverToken } = params;
+    connection.setContext(context);
+    connection.setRoutsMap(mapId);
+    const routsApi = new RoutsApi(serverToken);
+    connection.setRoutsApi(routsApi);
+    connection.routs.dlMap();
+    // -- END --
 
     if (services.maprules && utilStringQs(window.location.hash).maprules) {
         var maprules = utilStringQs(window.location.hash).maprules;

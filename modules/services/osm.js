@@ -59,7 +59,16 @@ var _userChangesets;
 var _userDetails;
 var _off;
 
-var _routsBoundaries = {}
+
+// -- Routs --
+// Abstract: Module variables for routs behavior
+var _routsBoundaries = {};
+var _routsMap = {};
+var _mapId = undefined;
+var _api = undefined;
+var _tokens = {};
+var _context = undefined;
+// -- END --
 
 function authLoading() {
     dispatch.call('authLoading');
@@ -201,7 +210,7 @@ var parsers = {
 
     way: function wayData(obj, uid) {
         var attrs = obj.attributes;
-        console.log(`Node attributes received from API: ${JSON.stringify(attrs)}`);
+        console.log(`Way attributes received from API: ${JSON.stringify(attrs)}`);
         return new osmWay({
             id: uid,
             visible: getVisible(attrs),
@@ -305,7 +314,6 @@ function parseXML(xml, callback, options) {
     if (!xml || !xml.childNodes) {
         return callback({ message: 'No XML', status: -1 });
     }
-
     var root = xml.childNodes[0];
     var children = root.childNodes;
     utilIdleWorker(children, parseChild, done);
@@ -373,18 +381,16 @@ function wrapcb(thisArg, callback, cid) {
 
 
 const jsonParsers = {
-    node: (data, uid) => {
-        return new osmNode({
-            id: uid,
-            // visible: getVisible(attrs),
-            // version: attrs.version.value,
-            // changeset: attrs.changeset && attrs.changeset.value,
-            // timestamp: attrs.timestamp && attrs.timestamp.value,
-            // user: attrs.user && attrs.user.value,
-            // uid: attrs.uid && attrs.uid.value,
-            // loc,
-            // tags: getTags(obj)
+    node: (data) => {
+        console.log('Building a new OSM NODE')
+        const n = new osmNode({
+            id: data.id,
+            loc: JSON.parse(data.loc),
+            tags: data.tags,
+            visible: data.visible,
         });
+        console.log('=> ', n)
+        return n;
     },
     way: () => ({}),
     relation: () => ({}),
@@ -393,40 +399,42 @@ const jsonParsers = {
 function jsonParser(json, callback) {
     console.log('Transforming json to node objects');
     // Should return an array of osmNode or osmWay or osmRelation
-    if (!json || !Array.isArray(json)) {
+    if (!json) {
         return callback({ message: 'No JSON Nodes', status: -1 });
     }
 
+    console.log('JSON Received is', json);
+
     const done = (results) => callback(null, results);
 
-    const parseChild = () => {
+    const parseChild = (child) => {
         var parser = jsonParsers[child.nodeName];
         if (!parser) return null;
 
-        var uid;
-        if (child.nodeName === 'user') {
-            uid = child.attributes.id.value;
-            if (options.skipSeen && _userCache.user[uid]) {
-                delete _userCache.toLoad[uid];
-                return null;
-            }
+        // var uid;
+        // if (child.nodeName === 'user') {
+        //     uid = child.attributes.id.value;
+        //     if (options.skipSeen && _userCache.user[uid]) {
+        //         delete _userCache.toLoad[uid];
+        //         return null;
+        //     }
+        //
+        // } else if (child.nodeName === 'note') {
+        //     uid = child.getElementsByTagName('id')[0].textContent;
+        //
+        // } else {
+        //     uid = osmEntity.id.fromOSM(child.nodeName, child.attributes.id.value);
+        //     // if options.skipSeen
+        //     if (true) {
+        //         if (_tileCache.seen[uid]) return null;  // avoid reparsing a "seen" entity
+        //         _tileCache.seen[uid] = true;
+        //     }
+        // }
 
-        } else if (child.nodeName === 'note') {
-            uid = child.getElementsByTagName('id')[0].textContent;
+        return parser(child);
+    };
 
-        } else {
-            uid = osmEntity.id.fromOSM(child.nodeName, child.attributes.id.value);
-            // if options.skipSeen
-            if (true) {
-                if (_tileCache.seen[uid]) return null;  // avoid reparsing a "seen" entity
-                _tileCache.seen[uid] = true;
-            }
-        }
-
-        return parser(child, uid);
-    }
-
-    var children = json;
+    var children = json.nodes;
     utilIdleWorker(children, parseChild, done);
 }
 
@@ -437,9 +445,49 @@ export default {
         utilRebind(this, dispatch, 'on');
     },
 
+    setContext(context) {
+        _context = context;
+    },
+
+    setRoutsApi: function(api, tokens={}) {
+        _api = api;
+        _tokens = tokens;
+    },
+
+    setRoutsMap: function(mapId) {
+        _mapId = mapId;
+        console.log(`Map ID set to ${_mapId}`)
+    },
+
     setRoutsBoundaries: function(area) {
-        _routsBoundaries = area
-    }
+        _routsBoundaries = area;
+    },
+
+    // Test with:
+    routs: {
+      dlMap: async function() {
+          const user = await _api.query('me{username,email}');
+          const map = await _api.query(`getMap(id:"${_mapId}") {name ressources}`)
+          console.log('DLMAP: ', {
+              user,
+              map
+          });
+          try {
+              const m = JSON.parse(map.getMap.ressources);
+              if (_context && _context.map()) {
+                  console.log('Centering on map area');
+                  _context.map().zoom(18.0);
+                  _context.map().center([m.area.northWest[1], m.area.northWest[0]]);
+                  _routsMap = {
+                      name: map.getMap.name,
+                      data: m,
+                  }
+              }
+          } catch (e) {
+              console.error(`Failed to center to map area: ${e}`);
+          }
+      },
+    },
 
     reset: function() {
         _connectionID++;
@@ -561,14 +609,35 @@ export default {
         } else {
             // Making a request expecting XML response format.
             var url = urlroot + path;
+            if (!utilQsString(window.location.hash).useOSM) {
+                // Replace with POST simulator.routs.fr/maps/toOSMFormat { map } => { nodes: [] }
+                // url = 'https://simulator.routs.fr/maps/toOSMFormat';
 
-            console.log(`Contacting OSM at ${url}`);
-            fetch(url, { method: 'get' }).then(res => res.text()).then(res => {
-                console.log('Using fetch to request data');
-                console.log(res);
-                return done(null, res, false);
-            });
-            // return d3_xml(url).get(done);
+                url = 'http://localhost:8080/maps/toOSM';
+                console.log(`Contacting OSM at ${url}`);
+                const m = _routsMap.data;
+                const body = {
+                    latMin: m.area.southEast[0],
+                    latMax: m.area.northWest[0],
+                    lngMin: m.area.northWest[1],
+                    lngMax: m.area.southEast[1],
+                };
+
+                fetch(url,
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        method: 'POST',
+                        body: JSON.stringify(body),
+                    }).then(res => res.json()).then(res => {
+                    console.log(`Using fetch to request data from ${url}`);
+                    console.log(res);
+                    return done(null, res, false);
+                });
+            } else {
+                return d3_xml(url).get(done);
+            }
         }
     },
 
