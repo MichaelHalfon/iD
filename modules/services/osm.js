@@ -195,7 +195,7 @@ var parsers = {
     node: function nodeData(obj, uid) {
         var attrs = obj.attributes;
         const loc = getLoc(attrs);
-        return new osmNode({
+        const n = new osmNode({
             id: uid,
             visible: getVisible(attrs),
             version: attrs.version.value,
@@ -206,12 +206,19 @@ var parsers = {
             loc,
             tags: getTags(obj)
         });
+        if(n.id === 'n248517618' || n.uid === 'n248517618') {
+            console.log('CREATED NODE', n);
+        }
+        // if (Object.keys(n.tags).length > 0) {
+        //     console.log('CREATED NODE => ', n);
+        // }
+        return n;
     },
 
     way: function wayData(obj, uid) {
         var attrs = obj.attributes;
         console.log(`Way attributes received from API: ${JSON.stringify(attrs)}`);
-        return new osmWay({
+        const w = new osmWay({
             id: uid,
             visible: getVisible(attrs),
             version: attrs.version.value,
@@ -222,6 +229,8 @@ var parsers = {
             tags: getTags(obj),
             nodes: getNodes(obj),
         });
+        console.log('CREATED WAY => ', w);
+        return w;
     },
 
     relation: function relationData(obj, uid) {
@@ -379,20 +388,51 @@ function wrapcb(thisArg, callback, cid) {
     };
 }
 
+async function getSingleNodeId(id) {
+    const uid = await new Promise(resolve => {
+        let uid;
+        d3_xml(`https://api.openstreetmap.org/api/0.6/nodes?nodes=${id}`).get((err, xml) => {
+            try {
+                const children = xml.childNodes[0].childNodes[1];
+                console.log('searching', children);
+                console.log(children.attributes);
+                console.log(children.attributes.uid ? 'UID FOUND' : 'UID NOT FOUND')
+                console.log(`children uid: ${children.attributes.uid.value}`)
+                uid = children.attributes.uid.value;
+            } catch (e) {
+                console.log('error')
+            }
+            resolve(uid);
+        });
+    });
+    return uid;
+};
+window.testId = (id) => getSingleNodeId(id);
 
 const jsonParsers = {
-    node: (data) => {
+    node: async (data, uid) => {
         console.log('Building a new OSM NODE')
         const n = new osmNode({
-            id: data.id,
+            id: uid,
+            uid: await getSingleNodeId(data.id),
             loc: JSON.parse(data.loc),
-            tags: data.tags,
+            tags: JSON.parse(data.tags),
             visible: data.visible,
         });
         console.log('=> ', n)
         return n;
     },
-    way: () => ({}),
+    way: async (data, uid) => {
+        console.log('Building a new OSM WAY');
+        const w = new osmWay({
+            id: uid,
+            uid: data.id,
+            tags: JSON.parse(data.tags),
+            nodes: data.nodes,
+        });
+        console.log('=> ', w);
+        return w;
+    },
     relation: () => ({}),
 };
 
@@ -407,34 +447,39 @@ function jsonParser(json, callback) {
 
     const done = (results) => callback(null, results);
 
-    const parseChild = (child) => {
+    const parseChild = async (child) => {
         var parser = jsonParsers[child.nodeName];
         if (!parser) return null;
 
-        // var uid;
-        // if (child.nodeName === 'user') {
-        //     uid = child.attributes.id.value;
-        //     if (options.skipSeen && _userCache.user[uid]) {
-        //         delete _userCache.toLoad[uid];
-        //         return null;
-        //     }
-        //
-        // } else if (child.nodeName === 'note') {
-        //     uid = child.getElementsByTagName('id')[0].textContent;
-        //
-        // } else {
-        //     uid = osmEntity.id.fromOSM(child.nodeName, child.attributes.id.value);
-        //     // if options.skipSeen
-        //     if (true) {
-        //         if (_tileCache.seen[uid]) return null;  // avoid reparsing a "seen" entity
-        //         _tileCache.seen[uid] = true;
-        //     }
-        // }
+        // Maybe necessary to make additional handmade call to
+        // https://api.openstreetmap.org/api/0.6/nodes?nodes=${n.id}
+        // To get the actual UID of the node :(
 
-        return parser(child);
+        var uid = 'unset'
+        if (child.nodeName === 'user') {
+            uid = child.attributes.id.value;
+            if (options.skipSeen && _userCache.user[uid]) {
+                delete _userCache.toLoad[uid];
+                return null;
+            }
+
+        } else if (child.nodeName === 'note') {
+            uid = child.getElementsByTagName('id')[0].textContent;
+
+        } else {
+            // uid = osmEntity.id.fromOSM(child.nodeName, child.attributes.id.value);
+            uid = osmEntity.id.fromOSM(child.nodeName, child.id);
+            // if options.skipSeen
+            if (false) {
+                if (_tileCache.seen[uid]) return null;  // avoid reparsing a "seen" entity
+                _tileCache.seen[uid] = true;
+            }
+        }
+
+        return await parser(child, uid);
     };
 
-    var children = json.nodes;
+    var children = [...json.nodes, ...json.ways];
     utilIdleWorker(children, parseChild, done);
 }
 
@@ -454,9 +499,9 @@ export default {
         _tokens = tokens;
     },
 
-    setRoutsMap: function(mapId) {
+    setRoutsMap: async function(mapId) {
         _mapId = mapId;
-        console.log(`Map ID set to ${_mapId}`)
+        console.log(`Map ID set to ${_mapId}`);
     },
 
     setRoutsBoundaries: function(area) {
@@ -609,7 +654,8 @@ export default {
         } else {
             // Making a request expecting XML response format.
             var url = urlroot + path;
-            if (!utilQsString(window.location.hash).useOSM) {
+            const useOsm = true;
+            if (!useOsm) {
                 // Replace with POST simulator.routs.fr/maps/toOSMFormat { map } => { nodes: [] }
                 // url = 'https://simulator.routs.fr/maps/toOSMFormat';
 
