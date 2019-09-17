@@ -9,11 +9,11 @@ class Api {
   constructor(serverToken) {
     this.token = serverToken;
     this.url = 'https://api.routs.fr/api';
-    console.log(`Routs api ready with server token ${serverToken}`);
+    // console.log(`Routs api ready with server token ${serverToken}`);
   }
 
   query(string) {
-    const body = JSON.stringify({ query: `{${string}}` });
+    const body = JSON.stringify({ query: '{' + string + '}' });
     return fetch(this.url, {
       method: 'POST',
       headers: {
@@ -28,13 +28,13 @@ class Api {
         }
         return response.json();
       })
-      .then((data) => {
+      .then(function(data) {
         return Promise.resolve(data.data);
       });
   }
 
   mutateConnected(string) {
-      const body = JSON.stringify({ query: `mutation {${string}}` });
+      const body = JSON.stringify({ query: 'mutation {'+ string + '}' });
       return fetch(this.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ class Api {
     }
 
   mutate(string) {
-      const body = JSON.stringify({ query: `mutation {${string}}` });
+      const body = JSON.stringify({ query: 'mutation {' + string + '}' });
       return fetch(this.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json'

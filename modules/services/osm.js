@@ -194,7 +194,7 @@ function encodeNoteRtree(note) {
 var parsers = {
     node: function nodeData(obj, uid) {
         var attrs = obj.attributes;
-        const loc = getLoc(attrs);
+        var loc = getLoc(attrs);
         return new osmNode({
             id: uid,
             visible: getVisible(attrs),
@@ -203,14 +203,14 @@ var parsers = {
             timestamp: attrs.timestamp && attrs.timestamp.value,
             user: attrs.user && attrs.user.value,
             uid: attrs.uid && attrs.uid.value,
-            loc,
+            loc: loc,
             tags: getTags(obj)
         });
     },
 
     way: function wayData(obj, uid) {
         var attrs = obj.attributes;
-        console.log(`Way attributes received from API: ${JSON.stringify(attrs)}`);
+        // console.log(`Way attributes received from API: ${JSON.stringify(attrs)}`);
         return new osmWay({
             id: uid,
             visible: getVisible(attrs),
@@ -226,7 +226,7 @@ var parsers = {
 
     relation: function relationData(obj, uid) {
         var attrs = obj.attributes;
-        console.log(`Relation attributes received from API: ${attrs}`)
+        // console.log(`Relation attributes received from API: ${attrs}`)
         return new osmRelation({
             id: uid,
             visible: getVisible(attrs),
@@ -242,7 +242,7 @@ var parsers = {
 
     note: function parseNote(obj, uid) {
         var attrs = obj.attributes;
-        console.log(`Note attributes received from API: ${attrs}`)
+        // console.log(`Note attributes received from API: ${attrs}`)
         var childNodes = obj.childNodes;
         var props = {};
 
@@ -284,7 +284,7 @@ var parsers = {
 
     user: function parseUser(obj, uid) {
         var attrs = obj.attributes;
-        console.log(`User attributes received from API: ${attrs}`)
+        // console.log(`User attributes received from API: ${attrs}`)
         var user = {
             id: uid,
             display_name: attrs.display_name && attrs.display_name.value,
@@ -380,7 +380,7 @@ function wrapcb(thisArg, callback, cid) {
 }
 
 
-const jsonParsers = {
+var jsonParsers = {
     node: (data) => {
         console.log('Building a new OSM NODE')
         const n = new osmNode({
@@ -456,7 +456,7 @@ export default {
 
     setRoutsMap: function(mapId) {
         _mapId = mapId;
-        console.log(`Map ID set to ${_mapId}`)
+        // console.log(`Map ID set to ${_mapId}`)
     },
 
     setRoutsBoundaries: function(area) {
@@ -467,7 +467,7 @@ export default {
     routs: {
       dlMap: async function() {
           const user = await _api.query('me{username,email}');
-          const map = await _api.query(`getMap(id:"${_mapId}") {name ressources}`)
+          const map = await _api.query('getMap(id:"' + _mapId + '") {name ressources}')
           console.log('DLMAP: ', {
               user,
               map
@@ -484,7 +484,8 @@ export default {
                   }
               }
           } catch (e) {
-              console.error(`Failed to center to map area: ${e}`);
+              // console.error(`Failed to center to map area: ${e}`);
+              console.error('Failed to center to map area', e)
           }
       },
     },
@@ -614,7 +615,7 @@ export default {
                 // url = 'https://simulator.routs.fr/maps/toOSMFormat';
 
                 url = 'http://localhost:8080/maps/toOSM';
-                console.log(`Contacting OSM at ${url}`);
+                // console.log(`Contacting OSM at ${url}`);
                 const m = _routsMap.data;
                 const body = {
                     latMin: m.area.southEast[0],
@@ -631,8 +632,8 @@ export default {
                         method: 'POST',
                         body: JSON.stringify(body),
                     }).then(res => res.json()).then(res => {
-                    console.log(`Using fetch to request data from ${url}`);
-                    console.log(res);
+                    // console.log(`Using fetch to request data from ${url}`);
+                    // console.log(res);
                     return done(null, res, false);
                 });
             } else {
@@ -709,6 +710,7 @@ export default {
     // POST /api/0.6/changeset/#id/upload
     // PUT /api/0.6/changeset/#id/close
     putChangeset: function(changeset, changes, callback) {
+        console.log('PuChangeset: ', changes);
         var cid = _connectionID;
 
         if (_changeset.inflight) {
@@ -1282,7 +1284,7 @@ export default {
     replaceNote: function(note) {
         if (!(note instanceof osmNote) || !note.id) return;
 
-        _noteCache.note[note.id] = note;
+        _noteCache.note[notecontex.id] = note;
         updateRtree(encodeNoteRtree(note), true);  // true = replace
         return note;
     },

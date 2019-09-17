@@ -191,6 +191,8 @@ export function coreContext() {
     };
 
     context.save = function() {
+        console.log('Context.Save')
+
         // no history save, no message onbeforeunload
         if (inIntro || d3_select('.modal').size()) return;
 
