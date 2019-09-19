@@ -381,9 +381,9 @@ function wrapcb(thisArg, callback, cid) {
 
 
 var jsonParsers = {
-    node: (data) => {
+    node: function (data) {
         console.log('Building a new OSM NODE')
-        const n = new osmNode({
+        varn = new osmNode({
             id: data.id,
             loc: JSON.parse(data.loc),
             tags: data.tags,
@@ -392,8 +392,8 @@ var jsonParsers = {
         console.log('=> ', n)
         return n;
     },
-    way: () => ({}),
-    relation: () => ({}),
+    way: function () { return {}; },
+    relation: function () { return {}; },
 };
 
 function jsonParser(json, callback) {
@@ -405,9 +405,9 @@ function jsonParser(json, callback) {
 
     console.log('JSON Received is', json);
 
-    const done = (results) => callback(null, results);
+    vardone = function (results) { return callback(null, results); };
 
-    const parseChild = (child) => {
+    varparseChild = function (child) {
         var parser = jsonParsers[child.nodeName];
         if (!parser) return null;
 
@@ -445,13 +445,13 @@ export default {
         utilRebind(this, dispatch, 'on');
     },
 
-    setContext(context) {
+    setContext: function(context) {
         _context = context;
     },
 
-    setRoutsApi: function(api, tokens={}) {
+    setRoutsApi: function(api, tokens) {
         _api = api;
-        _tokens = tokens;
+        _tokens = tokens || {};
     },
 
     setRoutsMap: function(mapId) {
@@ -465,28 +465,27 @@ export default {
 
     // Test with:
     routs: {
-      dlMap: async function() {
-          const user = await _api.query('me{username,email}');
-          const map = await _api.query('getMap(id:"' + _mapId + '") {name ressources}')
-          console.log('DLMAP: ', {
-              user,
-              map
-          });
-          try {
-              const m = JSON.parse(map.getMap.ressources);
-              if (_context && _context.map()) {
-                  console.log('Centering on map area');
-                  _context.map().zoom(18.0);
-                  _context.map().center([m.area.northWest[1], m.area.northWest[0]]);
-                  _routsMap = {
-                      name: map.getMap.name,
-                      data: m,
+      dlMap: function() {
+          // Replace next queries with .then
+          _api.query('me{username,email}').then(function (r) {
+              _api.query('getMap(id:"' + _mapId + '") {name ressources}').then(function (map) {
+                  try {
+                      var m = JSON.parse(map.getMap.ressources);
+                      if (_context && _context.map()) {
+                          console.log('Centering on map area');
+                          _context.map().zoom(18.0);
+                          _context.map().center([m.area.northWest[1], m.area.northWest[0]]);
+                          _routsMap = {
+                              name: map.getMap.name,
+                              data: m,
+                          };
+                      }
+                  } catch (e) {
+                      // console.error(`Failed to center to map area: ${e}`);
+                      console.error('Failed to center to map area', e)
                   }
-              }
-          } catch (e) {
-              // console.error(`Failed to center to map area: ${e}`);
-              console.error('Failed to center to map area', e)
-          }
+              });
+          });
       },
     },
 
@@ -564,7 +563,7 @@ export default {
         var that = this;
         var cid = _connectionID;
 
-        function done(err, xml, isXml=true) {
+        function done(err, xml, isXml) {
             if (that.getConnectionId() !== cid) {
                 if (callback) callback({ message: 'Connection Switched', status: -1 });
                 return;
@@ -587,7 +586,6 @@ export default {
                     _rateLimitError = err;
                     dispatch.call('change');
                 }
-
                 if (callback) {
                     if (err) {
                         return callback(err);
@@ -596,7 +594,7 @@ export default {
                             console.log('PARSING XML BUT ITS NOT ACTUALLY XML')
                             return callback(jsonParser(xml, callback))
                         }
-                        return parseXML(xml, (err, results) => {
+                        return parseXML(xml, function (err, results) {
                             console.log(results);
                             return callback(err, results);
                         }, options);
@@ -616,8 +614,8 @@ export default {
 
                 url = 'http://localhost:8080/maps/toOSM';
                 // console.log(`Contacting OSM at ${url}`);
-                const m = _routsMap.data;
-                const body = {
+                var m = _routsMap.data;
+                var body = {
                     latMin: m.area.southEast[0],
                     latMax: m.area.northWest[0],
                     lngMin: m.area.northWest[1],
@@ -631,7 +629,7 @@ export default {
                         },
                         method: 'POST',
                         body: JSON.stringify(body),
-                    }).then(res => res.json()).then(res => {
+                    }).then(function (res) { return res.json() }).then(function (res) {
                     // console.log(`Using fetch to request data from ${url}`);
                     // console.log(res);
                     return done(null, res, false);

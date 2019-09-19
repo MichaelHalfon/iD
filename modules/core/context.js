@@ -35,7 +35,6 @@ export function setAreaKeys(value) {
     areaKeys = value;
 }
 
-
 export function coreContext() {
     var context = {};
     context.version = '2.14.3';
@@ -512,12 +511,13 @@ export function coreContext() {
     // -- Routs --
     // -- Abstract: Loading the routs map id into osm service
     console.log('Window hash', window.location.hash);
-    const params = utilStringQs(window.location.hash);
-    const mapId = params['#routs-map'] || params['routs-map']
-    const { serverToken } = params;
+    var params = utilStringQs(window.location.hash);
+    var mapId = params['#routs-map'] || params['routs-map']
+    var serverToken = params.serverToken;
     connection.setContext(context);
     connection.setRoutsMap(mapId);
-    const routsApi = new RoutsApi(serverToken);
+    var routsApi = RoutsApi;
+    routsApi.serverToken = serverToken;
     connection.setRoutsApi(routsApi);
     connection.routs.dlMap();
     // -- END --
