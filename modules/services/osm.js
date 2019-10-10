@@ -195,6 +195,7 @@ var parsers = {
     node: function nodeData(obj, uid) {
         var attrs = obj.attributes;
         var loc = getLoc(attrs);
+        // TODO: ROuts Check in local diffs if need to update node
         return new osmNode({
             id: uid,
             visible: getVisible(attrs),
@@ -210,6 +211,7 @@ var parsers = {
 
     way: function wayData(obj, uid) {
         var attrs = obj.attributes;
+        // TODO: ROuts Check in local diffs if need to update way
         // console.log(`Way attributes received from API: ${JSON.stringify(attrs)}`);
         return new osmWay({
             id: uid,
@@ -564,6 +566,10 @@ export default {
         var cid = _connectionID;
 
         function done(err, xml, isXml) {
+            if (err) {
+                console.error('D3XML failed: ', err);
+            }
+
             if (that.getConnectionId() !== cid) {
                 if (callback) callback({ message: 'Connection Switched', status: -1 });
                 return;
@@ -590,12 +596,7 @@ export default {
                     if (err) {
                         return callback(err);
                     } else {
-                        if (!isXml) {
-                            console.log('PARSING XML BUT ITS NOT ACTUALLY XML')
-                            return callback(jsonParser(xml, callback))
-                        }
                         return parseXML(xml, function (err, results) {
-                            console.log(results);
                             return callback(err, results);
                         }, options);
                     }
@@ -608,35 +609,8 @@ export default {
         } else {
             // Making a request expecting XML response format.
             var url = urlroot + path;
-            if (!utilQsString(window.location.hash).useOSM) {
-                // Replace with POST simulator.routs.fr/maps/toOSMFormat { map } => { nodes: [] }
-                // url = 'https://simulator.routs.fr/maps/toOSMFormat';
-
-                url = 'http://localhost:8080/maps/toOSM';
-                // console.log(`Contacting OSM at ${url}`);
-                var m = _routsMap.data;
-                var body = {
-                    latMin: m.area.southEast[0],
-                    latMax: m.area.northWest[0],
-                    lngMin: m.area.northWest[1],
-                    lngMax: m.area.southEast[1],
-                };
-
-                fetch(url,
-                    {
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        method: 'POST',
-                        body: JSON.stringify(body),
-                    }).then(function (res) { return res.json() }).then(function (res) {
-                    // console.log(`Using fetch to request data from ${url}`);
-                    // console.log(res);
-                    return done(null, res, false);
-                });
-            } else {
-                return d3_xml(url).get(done);
-            }
+            console.log('Fetching url from d3');
+            return d3_xml(url).get(done);
         }
     },
 
@@ -718,16 +692,20 @@ export default {
             return createdChangeset.call(this, null, _changeset.open);
 
         } else {   // Open a new changeset..
+            // ROUTS: Change endpoint for saving changes to Routs-API
+            // ROUTS: Change to store as JSON not as JXON or XML
             var options = {
                 method: 'PUT',
                 path: '/api/0.6/changeset/create',
                 options: { header: { 'Content-Type': 'text/xml' } },
                 content: JXON.stringify(changeset.asJXON())
             };
-            _changeset.inflight = oauth.xhr(
-                options,
-                wrapcb(this, createdChangeset, cid)
-            );
+            // _changeset.inflight = oauth.xhr(
+            //     options,
+            //     wrapcb(this, createdChangeset, cid)
+            // );
+            // TODO: Routs insert call to api
+            // this._api.post('/');
         }
 
 

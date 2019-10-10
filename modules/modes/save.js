@@ -121,7 +121,6 @@ export function modeSave(context) {
 
         // Store original changes, in case user wants to download them as an .osc file
         _origChanges = history.changes(actionDiscardTags(history.difference()));
-
         // First time, `history.perform` a no-op action.
         // Any conflict resolutions will be done as `history.replace`
         if (!tryAgain) {
@@ -314,6 +313,7 @@ export function modeSave(context) {
             if (changes.modified.length || changes.created.length || changes.deleted.length) {
                 loadLocation();  // so it is ready when we display the save screen
                 // ROUTS: Instead of puChangeSet, simply request handling by simulator
+                console.log(changes);
                 osm.putChangeset(changeset, changes, uploadCallback);
             } else {        // changes were insignificant or reverted by user
                 d3_select('.inspector-wrap *').remove();
@@ -517,6 +517,7 @@ export function modeSave(context) {
     }
 
 
+    // ROUTS: Here you can modify what can be done when clicking save button in ID
     mode.enter = function() {
         // Show sidebar
         context.ui().sidebar.expand();
@@ -537,17 +538,6 @@ export function modeSave(context) {
         }
 
         done();
-        // if (osm.authenticated()) {
-        //     done();
-        // } else {
-        //     osm.authenticate(function(err) {
-        //         if (err) {
-        //             cancel();
-        //         } else {
-        //             done();
-        //         }
-        //     });
-        // }
     };
 
 
