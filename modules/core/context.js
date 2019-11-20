@@ -510,6 +510,7 @@ export function coreContext() {
 
     // -- Routs --
     // -- Abstract: Loading the routs map id into osm service
+    console.error('TEST');
     console.log('Window hash', window.location.hash);
     var params = utilStringQs(window.location.hash);
     var mapId = params['#routs-map'] || params['routs-map'];

@@ -777,7 +777,7 @@
             }
         },
         "success": {
-            "just_edited": "You just edited OpenStreetMap!",
+            "just_edited": "You just edited your map!",
             "thank_you": "Thank you for improving the map.",
             "thank_you_location": "Thank you for improving the map around {where}.",
             "help_html": "Your changes should appear on OpenStreetMap within a few minutes. It may take longer for maps elsewhere to receive updates.",

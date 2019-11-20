@@ -87,7 +87,7 @@ export function modeSave(context) {
             return;
         }
 
-        // var osm = context.connection();
+        // var osm = context.concnection();
         // if (!osm) {
         //     cancel();
         //     return;
