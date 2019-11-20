@@ -13,7 +13,7 @@ var Api = {
     },
 
     query: function (string) {
-        var body = JSON.stringify({ query: '{' + string + '}' });
+        var body = JSON.stringify({ query: '{' + string + '}' , token: this.token });
         return fetch(this.url, {
             method: 'POST',
             headers: {

@@ -196,6 +196,16 @@ var parsers = {
         var attrs = obj.attributes;
         var loc = getLoc(attrs);
         // TODO: ROuts Check in local diffs if need to update node
+
+        _api.map.ressources.diffs.forEach(function(diff) {
+            if (diff.modified) {
+                var n = diff.modified.find(function(it) { return it.id === uid });
+                if (n) {
+                    loc = n.loc;
+                }
+            }
+        });
+
         return new osmNode({
             id: uid,
             visible: getVisible(attrs),
@@ -472,7 +482,20 @@ export default {
           _api.query('me{username,email}').then(function (r) {
               _api.query('getMap(id:"' + _mapId + '") {name ressources}').then(function (map) {
                   try {
-                      var m = JSON.parse(map.getMap.ressources);
+                      console.log('getMap', map);
+                      _api.map = map.getMap;
+                      _api.map.id = _mapId;
+                      try {
+                          _api.map.ressources = JSON.parse(_api.map.ressources);
+                      } catch (e) {
+                          console.error('Failed to parse map ressources');
+                      }
+                      var m = _api.map.ressources;
+                      if (m.diffs) {
+                          m.diffs.forEach(function(diff) {
+                              console.log('Trying to apply diff ', diff);
+                          });
+                      }
                       if (_context && _context.map()) {
                           console.log('Centering on map area');
                           _context.map().zoom(18.0);
@@ -682,7 +705,6 @@ export default {
     // POST /api/0.6/changeset/#id/upload
     // PUT /api/0.6/changeset/#id/close
     putChangeset: function(changeset, changes, callback) {
-        console.log('PuChangeset: ', changes);
         var cid = _connectionID;
 
         if (_changeset.inflight) {
@@ -704,8 +726,23 @@ export default {
             //     options,
             //     wrapcb(this, createdChangeset, cid)
             // );
+            console.log('Changes are ', changes);
+            // setTimeout(function () {
+            //     callback(null, changeset);
+            // }, 5000);
             // TODO: Routs insert call to api
-            // this._api.post('/');
+            if (!_api.map.ressources.diffs) {
+                _api.map.ressources.diffs = [];
+            }
+            _api.map.ressources.diffs.push(changes);
+            // Add author to diff ?
+            console.log('Saved diff ', changes);
+            _api.mutateConnected('updateMap(id: "' + _api.map.id + '", ressources: "' + JSON.stringify(_api.map.ressources).replace(/\"/g, '\\"') + '") { name }').then(function onSaved(res) {
+                return callback(null, changeset);
+            }).catch(function onSaveError(e) {
+                console.error(e);
+                callback(1, changeset);
+            });
         }
 
 

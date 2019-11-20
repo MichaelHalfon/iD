@@ -512,12 +512,13 @@ export function coreContext() {
     // -- Abstract: Loading the routs map id into osm service
     console.log('Window hash', window.location.hash);
     var params = utilStringQs(window.location.hash);
-    var mapId = params['#routs-map'] || params['routs-map']
+    var mapId = params['#routs-map'] || params['routs-map'];
+    console.log('Routs map id is ' + mapId);
     var serverToken = params.serverToken;
     connection.setContext(context);
     connection.setRoutsMap(mapId);
     var routsApi = RoutsApi;
-    routsApi.serverToken = serverToken;
+    routsApi.token = serverToken;
     connection.setRoutsApi(routsApi);
     connection.routs.dlMap();
     // -- END --

@@ -339,6 +339,9 @@ export function modeSave(context) {
             }
 
         } else {
+            // TODO ROUTS
+            console.log('Changeset uploaded without error', changeset);
+
             context.history().clearSaved();
             success(changeset);
             // Add delay to allow for postgres replication #1646 #2678
