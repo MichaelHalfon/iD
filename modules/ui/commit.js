@@ -35,6 +35,7 @@ var readOnlyTags = [
 var hashtagRegex = /(#[^\u2000-\u206F\u2E00-\u2E7F\s\\'!"#$%()*,.\/:;<=>?@\[\]^`{|}~]+)/g;
 
 
+// ROUTS: Here you can modify the commit interface for the front
 export function uiCommit(context) {
     var dispatch = d3_dispatch('cancel', 'save');
     var _userDetails;
@@ -285,8 +286,9 @@ export function uiCommit(context) {
                 dispatch.call('cancel', this, selectedID);
             });
 
+        // ROUTS: Enabling button for saving instantly
         buttonSection.selectAll('.save-button')
-            .classed('disabled', uploadBlockerTooltipText !== null)
+            // .classed('disabled', uploadBlockerTooltipText !== null)
             .on('click.save', function() {
                 if (!d3_select(this).classed('disabled')) {
                     this.blur();    // avoid keeping focus on the button - #4641

@@ -194,8 +194,19 @@ function encodeNoteRtree(note) {
 var parsers = {
     node: function nodeData(obj, uid) {
         var attrs = obj.attributes;
-        const loc = getLoc(attrs);
-        const n = new osmNode({
+        var loc = getLoc(attrs);
+        // TODO: ROuts Check in local diffs if need to update node
+
+        _api.map.ressources.diffs.forEach(function(diff) {
+            if (diff.modified) {
+                var n = diff.modified.find(function(it) { return it.id === uid });
+                if (n) {
+                    loc = n.loc;
+                }
+            }
+        });
+
+        return new osmNode({
             id: uid,
             visible: getVisible(attrs),
             version: attrs.version.value,
@@ -203,22 +214,16 @@ var parsers = {
             timestamp: attrs.timestamp && attrs.timestamp.value,
             user: attrs.user && attrs.user.value,
             uid: attrs.uid && attrs.uid.value,
-            loc,
+            loc: loc,
             tags: getTags(obj)
         });
-        if(n.id === 'n248517618' || n.uid === 'n248517618') {
-            console.log('CREATED NODE', n);
-        }
-        // if (Object.keys(n.tags).length > 0) {
-        //     console.log('CREATED NODE => ', n);
-        // }
-        return n;
     },
 
     way: function wayData(obj, uid) {
         var attrs = obj.attributes;
-        console.log(`Way attributes received from API: ${JSON.stringify(attrs)}`);
-        const w = new osmWay({
+        // TODO: ROuts Check in local diffs if need to update way
+        // console.log(`Way attributes received from API: ${JSON.stringify(attrs)}`);
+        return new osmWay({
             id: uid,
             visible: getVisible(attrs),
             version: attrs.version.value,
@@ -229,13 +234,11 @@ var parsers = {
             tags: getTags(obj),
             nodes: getNodes(obj),
         });
-        console.log('CREATED WAY => ', w);
-        return w;
     },
 
     relation: function relationData(obj, uid) {
         var attrs = obj.attributes;
-        console.log(`Relation attributes received from API: ${attrs}`)
+        // console.log(`Relation attributes received from API: ${attrs}`)
         return new osmRelation({
             id: uid,
             visible: getVisible(attrs),
@@ -251,7 +254,7 @@ var parsers = {
 
     note: function parseNote(obj, uid) {
         var attrs = obj.attributes;
-        console.log(`Note attributes received from API: ${attrs}`)
+        // console.log(`Note attributes received from API: ${attrs}`)
         var childNodes = obj.childNodes;
         var props = {};
 
@@ -293,7 +296,7 @@ var parsers = {
 
     user: function parseUser(obj, uid) {
         var attrs = obj.attributes;
-        console.log(`User attributes received from API: ${attrs}`)
+        // console.log(`User attributes received from API: ${attrs}`)
         var user = {
             id: uid,
             display_name: attrs.display_name && attrs.display_name.value,
@@ -388,52 +391,21 @@ function wrapcb(thisArg, callback, cid) {
     };
 }
 
-async function getSingleNodeId(id) {
-    const uid = await new Promise(resolve => {
-        let uid;
-        d3_xml(`https://api.openstreetmap.org/api/0.6/nodes?nodes=${id}`).get((err, xml) => {
-            try {
-                const children = xml.childNodes[0].childNodes[1];
-                console.log('searching', children);
-                console.log(children.attributes);
-                console.log(children.attributes.uid ? 'UID FOUND' : 'UID NOT FOUND')
-                console.log(`children uid: ${children.attributes.uid.value}`)
-                uid = children.attributes.uid.value;
-            } catch (e) {
-                console.log('error')
-            }
-            resolve(uid);
-        });
-    });
-    return uid;
-};
-window.testId = (id) => getSingleNodeId(id);
 
-const jsonParsers = {
-    node: async (data, uid) => {
+var jsonParsers = {
+    node: function (data) {
         console.log('Building a new OSM NODE')
-        const n = new osmNode({
-            id: uid,
-            uid: await getSingleNodeId(data.id),
+        varn = new osmNode({
+            id: data.id,
             loc: JSON.parse(data.loc),
-            tags: JSON.parse(data.tags),
+            tags: data.tags,
             visible: data.visible,
         });
         console.log('=> ', n)
         return n;
     },
-    way: async (data, uid) => {
-        console.log('Building a new OSM WAY');
-        const w = new osmWay({
-            id: uid,
-            uid: data.id,
-            tags: JSON.parse(data.tags),
-            nodes: data.nodes,
-        });
-        console.log('=> ', w);
-        return w;
-    },
-    relation: () => ({}),
+    way: function () { return {}; },
+    relation: function () { return {}; },
 };
 
 function jsonParser(json, callback) {
@@ -445,41 +417,36 @@ function jsonParser(json, callback) {
 
     console.log('JSON Received is', json);
 
-    const done = (results) => callback(null, results);
+    vardone = function (results) { return callback(null, results); };
 
-    const parseChild = async (child) => {
+    varparseChild = function (child) {
         var parser = jsonParsers[child.nodeName];
         if (!parser) return null;
 
-        // Maybe necessary to make additional handmade call to
-        // https://api.openstreetmap.org/api/0.6/nodes?nodes=${n.id}
-        // To get the actual UID of the node :(
+        // var uid;
+        // if (child.nodeName === 'user') {
+        //     uid = child.attributes.id.value;
+        //     if (options.skipSeen && _userCache.user[uid]) {
+        //         delete _userCache.toLoad[uid];
+        //         return null;
+        //     }
+        //
+        // } else if (child.nodeName === 'note') {
+        //     uid = child.getElementsByTagName('id')[0].textContent;
+        //
+        // } else {
+        //     uid = osmEntity.id.fromOSM(child.nodeName, child.attributes.id.value);
+        //     // if options.skipSeen
+        //     if (true) {
+        //         if (_tileCache.seen[uid]) return null;  // avoid reparsing a "seen" entity
+        //         _tileCache.seen[uid] = true;
+        //     }
+        // }
 
-        var uid = 'unset'
-        if (child.nodeName === 'user') {
-            uid = child.attributes.id.value;
-            if (options.skipSeen && _userCache.user[uid]) {
-                delete _userCache.toLoad[uid];
-                return null;
-            }
-
-        } else if (child.nodeName === 'note') {
-            uid = child.getElementsByTagName('id')[0].textContent;
-
-        } else {
-            // uid = osmEntity.id.fromOSM(child.nodeName, child.attributes.id.value);
-            uid = osmEntity.id.fromOSM(child.nodeName, child.id);
-            // if options.skipSeen
-            if (false) {
-                if (_tileCache.seen[uid]) return null;  // avoid reparsing a "seen" entity
-                _tileCache.seen[uid] = true;
-            }
-        }
-
-        return await parser(child, uid);
+        return parser(child);
     };
 
-    var children = [...json.nodes, ...json.ways];
+    var children = json.nodes;
     utilIdleWorker(children, parseChild, done);
 }
 
@@ -490,18 +457,18 @@ export default {
         utilRebind(this, dispatch, 'on');
     },
 
-    setContext(context) {
+    setContext: function(context) {
         _context = context;
     },
 
-    setRoutsApi: function(api, tokens={}) {
+    setRoutsApi: function(api, tokens) {
         _api = api;
-        _tokens = tokens;
+        _tokens = tokens || {};
     },
 
-    setRoutsMap: async function(mapId) {
+    setRoutsMap: function(mapId) {
         _mapId = mapId;
-        console.log(`Map ID set to ${_mapId}`);
+        // console.log(`Map ID set to ${_mapId}`)
     },
 
     setRoutsBoundaries: function(area) {
@@ -510,28 +477,41 @@ export default {
 
     // Test with:
     routs: {
-      dlMap: async function() {
-          const user = await _api.query('me{username,email}');
-          const map = await _api.query(`getMap(id:"${_mapId}") {name ressources}`)
-          console.log('DLMAP: ', {
-              user,
-              map
-          });
-          try {
-              const m = JSON.parse(map.getMap.ressources);
-              if (_context && _context.map()) {
-                  console.log('Centering on map area');
-                  _context.map().zoom(18.0);
-                  _context.map().center([m.area.northWest[1], m.area.northWest[0]]);
-                  _routsMap = {
-                      name: map.getMap.name,
-                      data: m,
-                  }
-              }
-          } catch (e) {
-              console.error(`Failed to center to map area: ${e}`);
-          }
-      },
+        dlMap: function() {
+            // Replace next queries with .then
+            _api.query('me{username,email}').then(function (r) {
+                _api.query('getMap(id:"' + _mapId + '") {name ressources}').then(function (map) {
+                    try {
+                        console.log('getMap', map);
+                        _api.map = map.getMap;
+                        _api.map.id = _mapId;
+                        try {
+                            _api.map.ressources = JSON.parse(_api.map.ressources);
+                        } catch (e) {
+                            console.error('Failed to parse map ressources');
+                        }
+                        var m = _api.map.ressources;
+                        if (m.diffs) {
+                            m.diffs.forEach(function(diff) {
+                                console.log('Trying to apply diff ', diff);
+                            });
+                        }
+                        if (_context && _context.map()) {
+                            console.log('Centering on map area');
+                            _context.map().zoom(18.0);
+                            _context.map().center([m.area.northWest[1], m.area.northWest[0]]);
+                            _routsMap = {
+                                name: map.getMap.name,
+                                data: m,
+                            };
+                        }
+                    } catch (e) {
+                        // console.error(`Failed to center to map area: ${e}`);
+                        console.error('Failed to center to map area', e)
+                    }
+                });
+            });
+        },
     },
 
     reset: function() {
@@ -608,7 +588,11 @@ export default {
         var that = this;
         var cid = _connectionID;
 
-        function done(err, xml, isXml=true) {
+        function done(err, xml, isXml) {
+            if (err) {
+                console.error('D3XML failed: ', err);
+            }
+
             if (that.getConnectionId() !== cid) {
                 if (callback) callback({ message: 'Connection Switched', status: -1 });
                 return;
@@ -622,26 +606,20 @@ export default {
                 that.logout();
                 that.loadFromAPI(path, callback, options);
 
-            // else, no retry..
+                // else, no retry..
             } else {
                 // 509 Bandwidth Limit Exceeded, 429 Too Many Requests
                 // Set the rateLimitError flag and trigger a warning..
                 if (!isAuthenticated && !_rateLimitError && err &&
-                        (err.status === 509 || err.status === 429)) {
+                    (err.status === 509 || err.status === 429)) {
                     _rateLimitError = err;
                     dispatch.call('change');
                 }
-
                 if (callback) {
                     if (err) {
                         return callback(err);
                     } else {
-                        if (!isXml) {
-                            console.log('PARSING XML BUT ITS NOT ACTUALLY XML')
-                            return callback(jsonParser(xml, callback))
-                        }
-                        return parseXML(xml, (err, results) => {
-                            console.log(results);
+                        return parseXML(xml, function (err, results) {
                             return callback(err, results);
                         }, options);
                     }
@@ -654,36 +632,8 @@ export default {
         } else {
             // Making a request expecting XML response format.
             var url = urlroot + path;
-            const useOsm = true;
-            if (!useOsm) {
-                // Replace with POST simulator.routs.fr/maps/toOSMFormat { map } => { nodes: [] }
-                // url = 'https://simulator.routs.fr/maps/toOSMFormat';
-
-                url = 'http://localhost:8080/maps/toOSM';
-                console.log(`Contacting OSM at ${url}`);
-                const m = _routsMap.data;
-                const body = {
-                    latMin: m.area.southEast[0],
-                    latMax: m.area.northWest[0],
-                    lngMin: m.area.northWest[1],
-                    lngMax: m.area.southEast[1],
-                };
-
-                fetch(url,
-                    {
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        method: 'POST',
-                        body: JSON.stringify(body),
-                    }).then(res => res.json()).then(res => {
-                    console.log(`Using fetch to request data from ${url}`);
-                    console.log(res);
-                    return done(null, res, false);
-                });
-            } else {
-                return d3_xml(url).get(done);
-            }
+            console.log('Fetching url from d3');
+            return d3_xml(url).get(done);
         }
     },
 
@@ -764,16 +714,35 @@ export default {
             return createdChangeset.call(this, null, _changeset.open);
 
         } else {   // Open a new changeset..
+            // ROUTS: Change endpoint for saving changes to Routs-API
+            // ROUTS: Change to store as JSON not as JXON or XML
             var options = {
                 method: 'PUT',
                 path: '/api/0.6/changeset/create',
                 options: { header: { 'Content-Type': 'text/xml' } },
                 content: JXON.stringify(changeset.asJXON())
             };
-            _changeset.inflight = oauth.xhr(
-                options,
-                wrapcb(this, createdChangeset, cid)
-            );
+            // _changeset.inflight = oauth.xhr(
+            //     options,
+            //     wrapcb(this, createdChangeset, cid)
+            // );
+            console.log('Changes are ', changes);
+            // setTimeout(function () {
+            //     callback(null, changeset);
+            // }, 5000);
+            // TODO: Routs insert call to api
+            if (!_api.map.ressources.diffs) {
+                _api.map.ressources.diffs = [];
+            }
+            _api.map.ressources.diffs.push(changes);
+            // Add author to diff ?
+            console.log('Saved diff ', changes);
+            _api.mutateConnected('updateMap(id: "' + _api.map.id + '", ressources: "' + JSON.stringify(_api.map.ressources).replace(/\"/g, '\\"') + '") { name }').then(function onSaved(res) {
+                return callback(null, changeset);
+            }).catch(function onSaveError(e) {
+                console.error(e);
+                callback(1, changeset);
+            });
         }
 
 
@@ -1328,7 +1297,7 @@ export default {
     replaceNote: function(note) {
         if (!(note instanceof osmNote) || !note.id) return;
 
-        _noteCache.note[note.id] = note;
+        _noteCache.note[notecontex.id] = note;
         updateRtree(encodeNoteRtree(note), true);  // true = replace
         return note;
     },

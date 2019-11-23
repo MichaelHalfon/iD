@@ -46,7 +46,7 @@ module.exports = function buildData() {
 
         for (var target of Object.keys(symlinks)) {
             if (!shell.test('-L', target)) {
-                console.log(`Creating symlink:  ${target} -> ${symlinks[target]}`);
+                // console.log(`Creating symlink:  ${target} -> ${symlinks[target]}`);
                 shell.ln('-sf', symlinks[target], target);
             }
         }

@@ -55,5 +55,5 @@ export function uiSourceSwitch(context) {
     };
 
 
-    return sourceSwitch;
+    return null;
 }

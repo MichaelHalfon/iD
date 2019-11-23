@@ -48,6 +48,7 @@ var _isSaving = false;
 
 
 export function modeSave(context) {
+    console.log('Entering Save mode');
     var mode = { id: 'save' };
     var keybinding = utilKeybinding('modeSave');
 
@@ -86,24 +87,24 @@ export function modeSave(context) {
             return;
         }
 
-        var osm = context.connection();
-        if (!osm) {
-            cancel();
-            return;
-        }
+        // var osm = context.connection();
+        // if (!osm) {
+        //     cancel();
+        //     return;
+        // }
 
         // If user somehow got logged out mid-save, try to reauthenticate..
         // This can happen if they were logged in from before, but the tokens are no longer valid.
-        if (!osm.authenticated()) {
-            osm.authenticate(function(err) {
-                if (err) {
-                    cancel();   // quit save mode..
-                } else {
-                    save(changeset, tryAgain, checkConflicts);  // continue where we left off..
-                }
-            });
-            return;
-        }
+        // if (!osm.authenticated()) {
+        //     osm.authenticate(function(err) {
+        //         if (err) {
+        //             cancel();   // quit save mode..
+        //         } else {
+        //             save(changeset, tryAgain, checkConflicts);  // continue where we left off..
+        //         }
+        //     });
+        //     return;
+        // }
 
         if (!_isSaving) {
             keybindingOff();
@@ -120,7 +121,6 @@ export function modeSave(context) {
 
         // Store original changes, in case user wants to download them as an .osc file
         _origChanges = history.changes(actionDiscardTags(history.difference()));
-
         // First time, `history.perform` a no-op action.
         // Any conflict resolutions will be done as `history.replace`
         if (!tryAgain) {
@@ -128,7 +128,9 @@ export function modeSave(context) {
         }
 
         // Attempt a fast upload.. If there are conflicts, re-enter with `checkConflicts = true`
+        console.log('Checking conflicts')
         if (!checkConflicts) {
+            console.log('Uploading changesets')
             upload(changeset);
 
         // Do the full (slow) conflict check..
@@ -292,10 +294,11 @@ export function modeSave(context) {
 
 
     function upload(changeset) {
+        console.log('Uploading to OSM')
         var osm = context.connection();
-        if (!osm) {
-            _errors.push({ msg: 'No OSM Service' });
-        }
+        // if (!osm) {
+        //     _errors.push({ msg: 'No OSM Service' });
+        // }
 
         if (_conflicts.length) {
             _conflicts.sort(function(a, b) { return b.id.localeCompare(a.id); });
@@ -309,6 +312,8 @@ export function modeSave(context) {
             var changes = history.changes(actionDiscardTags(history.difference()));
             if (changes.modified.length || changes.created.length || changes.deleted.length) {
                 loadLocation();  // so it is ready when we display the save screen
+                // ROUTS: Instead of puChangeSet, simply request handling by simulator
+                console.log(changes);
                 osm.putChangeset(changeset, changes, uploadCallback);
             } else {        // changes were insignificant or reverted by user
                 d3_select('.inspector-wrap *').remove();
@@ -334,6 +339,9 @@ export function modeSave(context) {
             }
 
         } else {
+            // TODO ROUTS
+            console.log('Changeset uploaded without error', changeset);
+
             context.history().clearSaved();
             success(changeset);
             // Add delay to allow for postgres replication #1646 #2678
@@ -512,6 +520,7 @@ export function modeSave(context) {
     }
 
 
+    // ROUTS: Here you can modify what can be done when clicking save button in ID
     mode.enter = function() {
         // Show sidebar
         context.ui().sidebar.expand();
@@ -531,17 +540,7 @@ export function modeSave(context) {
             return;
         }
 
-        if (osm.authenticated()) {
-            done();
-        } else {
-            osm.authenticate(function(err) {
-                if (err) {
-                    cancel();
-                } else {
-                    done();
-                }
-            });
-        }
+        done();
     };
 
 

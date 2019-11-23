@@ -55,7 +55,7 @@ if (isDevelopment) {
 
     http.createServer(
         ecstatic({ root: __dirname, cache: 0 })
-    ).listen(8080);
+    ).listen(5000);
 
-    console.log(colors.yellow('Listening on :8080'));
+    console.log(colors.yellow('Listening on :5000'));
 }

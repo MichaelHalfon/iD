@@ -5,70 +5,70 @@
 
 // const url = 'https://serene-crag-11618.herokuapp.com/api/';
 
-class Api {
-  constructor(serverToken) {
-    this.token = serverToken;
-    this.url = 'https://api.routs.fr/api';
-    console.log(`Routs api ready with server token ${serverToken}`);
-  }
-
-  query(string) {
-    const body = JSON.stringify({ query: `{${string}}` });
-    return fetch(this.url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + this.token,
-      },
-      body,
-    })
-      .then(response => {
-        if (!response.ok) {
-          return Promise.resolve({ errors: ['Invalid response'] });
-        }
-        return response.json();
-      })
-      .then((data) => {
-        return Promise.resolve(data.data);
-      });
-  }
-
-  mutateConnected(string) {
-      const body = JSON.stringify({ query: `mutation {${string}}` });
-      return fetch(this.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + this.token
+var Api = {
+    token: "",
+    url: 'https://api.routs.fr/api',
+    ctor: function(serverToken) {
+        this.token = serverToken;
     },
-        body,
-      }).then(response => response.json())
-        .then((data) => {
-          // console.log(body);
-          // console.log(data.data);
-          if (data.errors) {
-            console.error(data.errors);
-          }
-          return Promise.resolve(data.data);
-        });
-    }
 
-  mutate(string) {
-      const body = JSON.stringify({ query: `mutation {${string}}` });
-      return fetch(this.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json'
+    query: function (string) {
+        var body = JSON.stringify({ query: '{' + string + '}' , token: this.token });
+        return fetch(this.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + this.token,
+            },
+            body: body,
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    return Promise.resolve({ errors: ['Invalid response'] });
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                return Promise.resolve(data.data);
+            });
     },
-        body,
-      }).then(response => response.json())
-        .then((data) => {
-          // console.log(body);
-          // console.log(data.data);
-          if (data.errors) {
-            console.error(data.errors);
-          }
-          return Promise.resolve(data.data);
-        });
-    }
+
+    mutateConnected: function (string) {
+        var body = JSON.stringify({ query: 'mutation {' + string + '}' });
+        return fetch(this.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + this.token
+            },
+            body: body,
+        }).then(function (response) { return response.json(); })
+            .then(function (data) {
+                // console.log(body);
+                // console.log(data.data);
+                if (data.errors) {
+                    console.error(data.errors);
+                }
+                return Promise.resolve(data.data);
+            });
+    },
+
+    mutate: function (string) {
+        var body = JSON.stringify({ query: 'mutation {' + string + '}' });
+        return fetch(this.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json'
+            },
+            body: body,
+        }).then(function (response) { return response.json(); })
+            .then(function (data) {
+                // console.log(body);
+                // console.log(data.data);
+                if (data.errors) {
+                    console.error(data.errors);
+                }
+                return Promise.resolve(data.data);
+            });
+    },
 }
 
 export default Api;
