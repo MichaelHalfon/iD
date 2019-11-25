@@ -196,15 +196,21 @@ var parsers = {
         var attrs = obj.attributes;
         var loc = getLoc(attrs);
         // TODO: ROuts Check in local diffs if need to update node
+        var area = _api.map.ressources.area;
 
-        _api.map.ressources.diffs.forEach(function(diff) {
-            if (diff.modified) {
-                var n = diff.modified.find(function(it) { return it.id === uid });
-                if (n) {
-                    loc = n.loc;
+        console.log(loc);
+        if (_api.map && _api.map.ressources && _api.map.ressources.diffs) {
+            _api.map.ressources.diffs.forEach(function (diff) {
+                if (diff.modified) {
+                    var n = diff.modified.find(function (it) {
+                        return it.id === uid
+                    });
+                    if (n) {
+                        loc = n.loc;
+                    }
                 }
-            }
-        });
+            });
+        }
 
         return new osmNode({
             id: uid,
@@ -222,7 +228,10 @@ var parsers = {
     way: function wayData(obj, uid) {
         var attrs = obj.attributes;
         // TODO: ROuts Check in local diffs if need to update way
-        // console.log(`Way attributes received from API: ${JSON.stringify(attrs)}`);
+        var tags = getTags(obj);
+        if (tags.building === 'yes') {
+            return;
+        }
         return new osmWay({
             id: uid,
             visible: getVisible(attrs),
@@ -231,7 +240,7 @@ var parsers = {
             timestamp: attrs.timestamp && attrs.timestamp.value,
             user: attrs.user && attrs.user.value,
             uid: attrs.uid && attrs.uid.value,
-            tags: getTags(obj),
+            tags: tags,
             nodes: getNodes(obj),
         });
     },
@@ -497,9 +506,9 @@ export default {
                             });
                         }
                         if (_context && _context.map()) {
-                            console.log('Centering on map area');
+                            console.log('Centering on map area', m.area);
                             _context.map().zoom(18.0);
-                            _context.map().center([m.area.northWest[1], m.area.northWest[0]]);
+                            _context.map().center([m.area.northWest[1] + (m.area.southEast[1] - m.area.northWest[1]) / 2, m.area.northWest[0] + (m.area.southEast[0] - m.area.northWest[0]) / 2]);
                             _routsMap = {
                                 name: map.getMap.name,
                                 data: m,
