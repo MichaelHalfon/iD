@@ -337,6 +337,9 @@ function parseXML(xml, callback, options) {
     }
     var root = xml.childNodes[0];
     var children = root.childNodes;
+
+
+
     utilIdleWorker(children, parseChild, done);
 
 
